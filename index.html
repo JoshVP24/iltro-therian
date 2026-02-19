@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Therian App - Radar</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+    <title>Filtro Therian - Final</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; align-items: center; background-color: #121212; color: white; font-family: sans-serif; overflow-x: hidden; }
         #contenedor-app { position: relative; width: 100%; max-width: 400px; margin-top: 20px; }
         
-        /* AQUÍ ESTÁ LA CORRECCIÓN DE CAPAS */
+        /* EL ARREGLO DE CAPA QUE FUNCIONÓ (Para que las imágenes no se escondan) */
         video { width: 100%; border-radius: 15px; transform: scaleX(-1); background: #000; display: block; position: relative; z-index: 1; }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); border-radius: 15px; pointer-events: none; z-index: 100; }
         
         #ruleta { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.8); padding: 10px 20px; border-radius: 15px; font-size: 24px; font-weight: bold; z-index: 200; display: none; text-align: center; border: 2px solid #8a2be2; }
         button { margin-top: 20px; padding: 15px 30px; font-size: 20px; border-radius: 30px; border: none; background-color: #8a2be2; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4); z-index: 10; }
         button:disabled { background-color: #555; cursor: not-allowed; }
-        #consola { margin-top: 20px; width: 90%; max-width: 400px; background: #000; color: #0f0; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 10px; border: 1px solid #333; text-align: left; height: 150px; overflow-y: auto; }
+        #consola { margin-top: 20px; width: 90%; max-width: 400px; background: #000; color: #0f0; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 10px; border: 1px solid #333; text-align: left; height: 100px; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -29,9 +29,9 @@
         <canvas id="output_canvas"></canvas>
     </div>
 
-    <button id="btn-descubrir">¡Girar la Ruleta!</button>
+    <button id="btn-descubrir" disabled>Cargando IA...</button>
 
-    <div id="consola">> Sistema Frontal iniciado...<br></div>
+    <div id="consola">> Preparando sistema...<br></div>
 
     <script>
         const video = document.getElementById('webcam');
@@ -61,7 +61,7 @@
         let assets = {}; 
         let iaLista = false;
 
-        log("Cargando imágenes PNG...");
+        log("Cargando imágenes de animales...");
         therians.forEach(animal => {
             assets[animal.emoji] = { orejas: new Image(), centro: new Image() };
             if(animal.archivoOrejas) assets[animal.emoji].orejas.src = animal.archivoOrejas;
@@ -69,95 +69,78 @@
         });
 
         const faceMesh = new FaceMesh({locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
         }});
 
         faceMesh.setOptions({
-          maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5, selfieMode: true
+          maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5
         });
 
         faceMesh.onResults((results) => {
             if (!iaLista) {
                 iaLista = true;
-                log("✅ IA CARGADA Y LISTA.");
+                log("✅ IA ACTIVA. ¡Lista para jugar!");
                 boton.disabled = false;
                 boton.innerText = "¡Girar la Ruleta!";
             }
 
-            // CORRECCIÓN DE TAMAÑO DE LIENZO PARA CELULARES
-            if (video.videoWidth > 0) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-            } else {
-                canvas.width = 480;
-                canvas.height = 640;
-            }
-            
+            if (video.videoWidth === 0) return;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 && animalActual) {
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                 const rostro = results.multiFaceLandmarks[0];
                 const frente = rostro[10];   
                 const nariz = rostro[1];     
                 const mejillaIzq = rostro[234];
                 const mejillaDer = rostro[454];
 
-                // RADAR VISUAL DE PRUEBA: Dibuja un cuadrado azul brillante en la esquina y un círculo en tu nariz
-                ctx.fillStyle = "blue";
-                ctx.fillRect(20, 20, 80, 80); 
-                
+                // Círculo amarillo de rastreo: Si esto se ve, la IA está funcionando.
                 ctx.fillStyle = "yellow";
                 ctx.beginPath();
-                ctx.arc(nariz.x * canvas.width, nariz.y * canvas.height, 15, 0, 2 * Math.PI);
+                ctx.arc(nariz.x * canvas.width, nariz.y * canvas.height, 8, 0, 2 * Math.PI);
                 ctx.fill();
 
-                const anchoCara = Math.abs(mejillaDer.x - mejillaIzq.x) * canvas.width;
-                const orejasImg = assets[animalActual].orejas;
-                const centroImg = assets[animalActual].centro;
+                if (animalActual) {
+                    const anchoCara = Math.abs(mejillaDer.x - mejillaIzq.x) * canvas.width;
+                    const orejasImg = assets[animalActual].orejas;
+                    const centroImg = assets[animalActual].centro;
 
-                if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
-                    const anchoOrejas = anchoCara * 1.5; 
-                    const altoOrejas = (orejasImg.height / orejasImg.width) * anchoOrejas;
-                    const xOrejas = (frente.x * canvas.width) - (anchoOrejas / 2);
-                    const yOrejas = (frente.y * canvas.height) - altoOrejas + (anchoCara * 0.2); 
-                    ctx.drawImage(orejasImg, xOrejas, yOrejas, anchoOrejas, altoOrejas);
-                }
+                    if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
+                        const anchoOrejas = anchoCara * 1.5; 
+                        const altoOrejas = (orejasImg.height / orejasImg.width) * anchoOrejas;
+                        const xOrejas = (frente.x * canvas.width) - (anchoOrejas / 2);
+                        const yOrejas = (frente.y * canvas.height) - altoOrejas + (anchoCara * 0.2); 
+                        ctx.drawImage(orejasImg, xOrejas, yOrejas, anchoOrejas, altoOrejas);
+                    }
 
-                if (centroImg.src && centroImg.complete && centroImg.naturalWidth > 0) {
-                    const anchoCentro = anchoCara * 0.5; 
-                    const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
-                    const xCentro = (nariz.x * canvas.width) - (anchoCentro / 2);
-                    const yCentro = (nariz.y * canvas.height) - (altoCentro / 2);
-                    ctx.drawImage(centroImg, xCentro, yCentro, anchoCentro, altoCentro);
+                    if (centroImg.src && centroImg.complete && centroImg.naturalWidth > 0) {
+                        const anchoCentro = anchoCara * 0.5; 
+                        const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
+                        const xCentro = (nariz.x * canvas.width) - (anchoCentro / 2);
+                        const yCentro = (nariz.y * canvas.height) - (altoCentro / 2);
+                        ctx.drawImage(centroImg, xCentro, yCentro, anchoCentro, altoCentro);
+                    }
                 }
             }
         });
 
-        async function iniciarCamara() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 640 } } });
-                video.srcObject = stream;
-                await new Promise((resolve) => { video.onloadedmetadata = resolve; });
-                boton.disabled = true;
-                boton.innerText = "Cargando IA...";
-                video.play();
-                
-                async function procesarFrame() {
-                    await faceMesh.send({image: video});
-                    video.requestVideoFrameCallback(procesarFrame);
-                }
-                video.requestVideoFrameCallback(procesarFrame);
-
-            } catch (error) { log("❌ Error de cámara: " + error); }
-        }
-        iniciarCamara();
+        // Motor de cámara original (¡El que no falla!)
+        log("Encendiendo cámara...");
+        const camera = new Camera(video, {
+          onFrame: async () => {
+            await faceMesh.send({image: video});
+          },
+          width: 480, height: 640
+        });
+        camera.start();
 
         boton.addEventListener('click', () => {
             if (!iaLista) return;
             boton.disabled = true;
             ruleta.style.display = "block";
             animalActual = null; 
-            ctx.clearRect(0, 0, canvas.width, canvas.height); 
             
             let tiempoGiro = 0;
             const intervalo = setInterval(() => {
@@ -170,7 +153,7 @@
                     const ganador = therians[Math.floor(Math.random() * therians.length)];
                     ruleta.innerHTML = `¡Eres un<br><span style="color:#8a2be2; font-size:30px;">${ganador.emoji}</span>!`;
                     animalActual = ganador.emoji; 
-                    log("🎉 Resultado: " + ganador.emoji);
+                    log("Aplicando máscara de: " + ganador.emoji);
                     boton.disabled = false;
                     boton.innerText = "Girar de nuevo";
                 }
