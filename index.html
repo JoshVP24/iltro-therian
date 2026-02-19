@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Therian App</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <title>Therian App - Turbo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
     <style>
         body { 
             margin: 0; display: flex; flex-direction: column; align-items: center; 
@@ -33,11 +33,11 @@
         }
         button:disabled { background-color: #555; cursor: not-allowed; }
         
-        /* PANTALLA DE DEBUG PARA ENCONTRAR EL ERROR */
+        /* PANTALLA DE DEBUG */
         #consola {
             margin-top: 20px; width: 90%; max-width: 400px; background: #000; color: #0f0; 
             font-family: monospace; font-size: 12px; padding: 10px; border-radius: 10px; 
-            border: 1px solid #333; text-align: left;
+            border: 1px solid #333; text-align: left; height: 150px; overflow-y: auto;
         }
     </style>
 </head>
@@ -53,7 +53,7 @@
     <button id="btn-descubrir">¡Girar la Ruleta!</button>
 
     <div id="consola">
-        > Sistema iniciado...<br>
+        > Sistema Turbo iniciado...<br>
     </div>
 
     <script>
@@ -64,15 +64,10 @@
         const ruleta = document.getElementById('ruleta');
         const consola = document.getElementById('consola');
 
-        // Función para imprimir mensajes en tu pantalla
         function log(mensaje) {
             consola.innerHTML += "> " + mensaje + "<br>";
+            consola.scrollTop = consola.scrollHeight; // Auto-scroll hacia abajo
         }
-
-        // Atrapa cualquier error oculto del navegador y lo muestra en pantalla
-        window.onerror = function(msg, url, line) {
-            log("❌ ERROR CRÍTICO: " + msg + " (Línea " + line + ")");
-        };
 
         const therians = [
             { emoji: "🐺 Lobo", archivoOrejas: "orejas-lobo.png", archivoCentro: "hocico-lobo.png" },
@@ -87,7 +82,9 @@
 
         let animalActual = null; 
         let assets = {}; 
+        let iaLista = false;
 
+        // Cargar imágenes al inicio
         log("Cargando imágenes PNG...");
         therians.forEach(animal => {
             assets[animal.emoji] = { orejas: new Image(), centro: new Image() };
@@ -95,22 +92,26 @@
             if(animal.archivoCentro) assets[animal.emoji].centro.src = animal.archivoCentro; 
         });
 
-        log("Conectando con Google FaceMesh...");
+        // Configurar FaceMesh con opciones de alto rendimiento
+        log("Conectando con Google FaceMesh (Modo Turbo)...");
         const faceMesh = new FaceMesh({locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
         }});
 
         faceMesh.setOptions({
-          maxNumFaces: 1, refineLandmarks: false,
-          minDetectionConfidence: 0.5, minTrackingConfidence: 0.5
+          maxNumFaces: 1,
+          refineLandmarks: true, // Mejora la precisión de ojos y labios
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+          selfieMode: true // Optimizado para cámara frontal
         });
 
-        let rostroDetectado = false;
-
         faceMesh.onResults((results) => {
-            if (!rostroDetectado) {
-                rostroDetectado = true;
-                log("✅ ¡Rostro detectado! IA calculando.");
+            if (!iaLista) {
+                iaLista = true;
+                log("✅ IA CARGADA Y LISTA. ¡Ya puedes girar!");
+                boton.disabled = false;
+                boton.innerText = "¡Girar la Ruleta!";
             }
 
             canvas.width = video.videoWidth;
@@ -128,13 +129,8 @@
                 const orejasImg = assets[animalActual].orejas;
                 const centroImg = assets[animalActual].centro;
 
-                // PUNTO DE RASTREO: Dibuja un punto verde brillante en tu nariz para confirmar que sí funciona la IA
-                ctx.fillStyle = "#00ff00";
-                ctx.beginPath();
-                ctx.arc(nariz.x * canvas.width, nariz.y * canvas.height, 5, 0, 2 * Math.PI);
-                ctx.fill();
-
                 if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
+                    log("✏️ Dibujando orejas de " + animalActual);
                     const anchoOrejas = anchoCara * 1.5; 
                     const altoOrejas = (orejasImg.height / orejasImg.width) * anchoOrejas;
                     const xOrejas = (frente.x * canvas.width) - (anchoOrejas / 2);
@@ -143,6 +139,7 @@
                 }
 
                 if (centroImg.src && centroImg.complete && centroImg.naturalWidth > 0) {
+                    log("✏️ Dibujando hocico/nariz de " + animalActual);
                     const anchoCentro = anchoCara * 0.5; 
                     const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
                     const xCentro = (nariz.x * canvas.width) - (anchoCentro / 2);
@@ -152,28 +149,38 @@
             }
         });
 
-        log("Iniciando cámara...");
-        const camera = new Camera(video, {
-          onFrame: async () => {
-            await faceMesh.send({image: video}).catch(e => log("❌ IA Error: " + e));
-          },
-          width: 480, height: 640
-        });
-        camera.start().then(() => log("✅ Cámara encendida.")).catch(e => log("❌ Cámara Error: " + e));
+        // Bucle de cámara nativo (más robusto en móviles)
+        async function iniciarCamara() {
+            log("Iniciando cámara nativa...");
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 480, height: 640 } });
+                video.srcObject = stream;
+                await new Promise((resolve) => { video.onloadedmetadata = resolve; });
+                log("✅ Cámara nativa encendida. Iniciando IA...");
+                boton.disabled = true;
+                boton.innerText = "Cargando IA...";
+                video.play();
+                
+                // Bucle de procesamiento
+                async function procesarFrame() {
+                    await faceMesh.send({image: video});
+                    video.requestVideoFrameCallback(procesarFrame);
+                }
+                video.requestVideoFrameCallback(procesarFrame);
+
+            } catch (error) { log("❌ Error de cámara: " + error); }
+        }
+        iniciarCamara();
 
         boton.addEventListener('click', () => {
-            if(!rostroDetectado) {
-                log("⚠️ Espera un segundo a que la IA encuentre tu rostro...");
-                return;
-            }
-            
+            if (!iaLista) return;
             boton.disabled = true;
             ruleta.style.display = "block";
             animalActual = null; 
             ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            log("Girando ruleta...");
             
             let tiempoGiro = 0;
-            log("Girando ruleta...");
             const intervalo = setInterval(() => {
                 const indexAleatorio = Math.floor(Math.random() * therians.length);
                 ruleta.innerText = therians[indexAleatorio].emoji;
@@ -184,7 +191,7 @@
                     const ganador = therians[Math.floor(Math.random() * therians.length)];
                     ruleta.innerHTML = `¡Eres un<br><span style="color:#8a2be2; font-size:30px;">${ganador.emoji}</span>!`;
                     animalActual = ganador.emoji; 
-                    log("🎉 Resultado final: " + ganador.emoji);
+                    log("🎉 Resultado final: " + ganador.emoji + ". ¡Aplicando máscara!");
                     boton.disabled = false;
                     boton.innerText = "Girar de nuevo";
                 }
