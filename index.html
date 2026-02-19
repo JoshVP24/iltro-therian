@@ -3,42 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Therian App - Turbo</title>
+    <title>Therian App - Radar</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
     <style>
-        body { 
-            margin: 0; display: flex; flex-direction: column; align-items: center; 
-            background-color: #121212; color: white; font-family: sans-serif; overflow-x: hidden;
-        }
-        #contenedor-app { 
-            position: relative; width: 100%; max-width: 400px; margin-top: 20px; 
-        }
-        video { 
-            width: 100%; border-radius: 15px; transform: scaleX(-1); background: #000; display: block;
-        }
-        canvas { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            transform: scaleX(-1); border-radius: 15px; pointer-events: none;
-        }
-        #ruleta { 
-            position: absolute; top: 15%; left: 50%; transform: translateX(-50%); 
-            background: rgba(0, 0, 0, 0.8); padding: 10px 20px; border-radius: 15px; 
-            font-size: 24px; font-weight: bold; z-index: 10; display: none; text-align: center; border: 2px solid #8a2be2;
-        }
-        button { 
-            margin-top: 20px; padding: 15px 30px; font-size: 20px; border-radius: 30px; 
-            border: none; background-color: #8a2be2; color: white; font-weight: bold; 
-            cursor: pointer; box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4); z-index: 10;
-        }
-        button:disabled { background-color: #555; cursor: not-allowed; }
+        body { margin: 0; display: flex; flex-direction: column; align-items: center; background-color: #121212; color: white; font-family: sans-serif; overflow-x: hidden; }
+        #contenedor-app { position: relative; width: 100%; max-width: 400px; margin-top: 20px; }
         
-        /* PANTALLA DE DEBUG */
-        #consola {
-            margin-top: 20px; width: 90%; max-width: 400px; background: #000; color: #0f0; 
-            font-family: monospace; font-size: 12px; padding: 10px; border-radius: 10px; 
-            border: 1px solid #333; text-align: left; height: 150px; overflow-y: auto;
-        }
+        /* AQUÍ ESTÁ LA CORRECCIÓN DE CAPAS */
+        video { width: 100%; border-radius: 15px; transform: scaleX(-1); background: #000; display: block; position: relative; z-index: 1; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); border-radius: 15px; pointer-events: none; z-index: 100; }
+        
+        #ruleta { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.8); padding: 10px 20px; border-radius: 15px; font-size: 24px; font-weight: bold; z-index: 200; display: none; text-align: center; border: 2px solid #8a2be2; }
+        button { margin-top: 20px; padding: 15px 30px; font-size: 20px; border-radius: 30px; border: none; background-color: #8a2be2; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4); z-index: 10; }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+        #consola { margin-top: 20px; width: 90%; max-width: 400px; background: #000; color: #0f0; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 10px; border: 1px solid #333; text-align: left; height: 150px; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -52,9 +31,7 @@
 
     <button id="btn-descubrir">¡Girar la Ruleta!</button>
 
-    <div id="consola">
-        > Sistema Turbo iniciado...<br>
-    </div>
+    <div id="consola">> Sistema Frontal iniciado...<br></div>
 
     <script>
         const video = document.getElementById('webcam');
@@ -66,7 +43,7 @@
 
         function log(mensaje) {
             consola.innerHTML += "> " + mensaje + "<br>";
-            consola.scrollTop = consola.scrollHeight; // Auto-scroll hacia abajo
+            consola.scrollTop = consola.scrollHeight;
         }
 
         const therians = [
@@ -84,7 +61,6 @@
         let assets = {}; 
         let iaLista = false;
 
-        // Cargar imágenes al inicio
         log("Cargando imágenes PNG...");
         therians.forEach(animal => {
             assets[animal.emoji] = { orejas: new Image(), centro: new Image() };
@@ -92,30 +68,31 @@
             if(animal.archivoCentro) assets[animal.emoji].centro.src = animal.archivoCentro; 
         });
 
-        // Configurar FaceMesh con opciones de alto rendimiento
-        log("Conectando con Google FaceMesh (Modo Turbo)...");
         const faceMesh = new FaceMesh({locateFile: (file) => {
           return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
         }});
 
         faceMesh.setOptions({
-          maxNumFaces: 1,
-          refineLandmarks: true, // Mejora la precisión de ojos y labios
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-          selfieMode: true // Optimizado para cámara frontal
+          maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5, selfieMode: true
         });
 
         faceMesh.onResults((results) => {
             if (!iaLista) {
                 iaLista = true;
-                log("✅ IA CARGADA Y LISTA. ¡Ya puedes girar!");
+                log("✅ IA CARGADA Y LISTA.");
                 boton.disabled = false;
                 boton.innerText = "¡Girar la Ruleta!";
             }
 
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            // CORRECCIÓN DE TAMAÑO DE LIENZO PARA CELULARES
+            if (video.videoWidth > 0) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+            } else {
+                canvas.width = 480;
+                canvas.height = 640;
+            }
+            
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 && animalActual) {
@@ -125,12 +102,20 @@
                 const mejillaIzq = rostro[234];
                 const mejillaDer = rostro[454];
 
+                // RADAR VISUAL DE PRUEBA: Dibuja un cuadrado azul brillante en la esquina y un círculo en tu nariz
+                ctx.fillStyle = "blue";
+                ctx.fillRect(20, 20, 80, 80); 
+                
+                ctx.fillStyle = "yellow";
+                ctx.beginPath();
+                ctx.arc(nariz.x * canvas.width, nariz.y * canvas.height, 15, 0, 2 * Math.PI);
+                ctx.fill();
+
                 const anchoCara = Math.abs(mejillaDer.x - mejillaIzq.x) * canvas.width;
                 const orejasImg = assets[animalActual].orejas;
                 const centroImg = assets[animalActual].centro;
 
                 if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
-                    log("✏️ Dibujando orejas de " + animalActual);
                     const anchoOrejas = anchoCara * 1.5; 
                     const altoOrejas = (orejasImg.height / orejasImg.width) * anchoOrejas;
                     const xOrejas = (frente.x * canvas.width) - (anchoOrejas / 2);
@@ -139,7 +124,6 @@
                 }
 
                 if (centroImg.src && centroImg.complete && centroImg.naturalWidth > 0) {
-                    log("✏️ Dibujando hocico/nariz de " + animalActual);
                     const anchoCentro = anchoCara * 0.5; 
                     const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
                     const xCentro = (nariz.x * canvas.width) - (anchoCentro / 2);
@@ -149,19 +133,15 @@
             }
         });
 
-        // Bucle de cámara nativo (más robusto en móviles)
         async function iniciarCamara() {
-            log("Iniciando cámara nativa...");
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 480, height: 640 } });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 640 } } });
                 video.srcObject = stream;
                 await new Promise((resolve) => { video.onloadedmetadata = resolve; });
-                log("✅ Cámara nativa encendida. Iniciando IA...");
                 boton.disabled = true;
                 boton.innerText = "Cargando IA...";
                 video.play();
                 
-                // Bucle de procesamiento
                 async function procesarFrame() {
                     await faceMesh.send({image: video});
                     video.requestVideoFrameCallback(procesarFrame);
@@ -178,7 +158,6 @@
             ruleta.style.display = "block";
             animalActual = null; 
             ctx.clearRect(0, 0, canvas.width, canvas.height); 
-            log("Girando ruleta...");
             
             let tiempoGiro = 0;
             const intervalo = setInterval(() => {
@@ -191,7 +170,7 @@
                     const ganador = therians[Math.floor(Math.random() * therians.length)];
                     ruleta.innerHTML = `¡Eres un<br><span style="color:#8a2be2; font-size:30px;">${ganador.emoji}</span>!`;
                     animalActual = ganador.emoji; 
-                    log("🎉 Resultado final: " + ganador.emoji + ". ¡Aplicando máscara!");
+                    log("🎉 Resultado: " + ganador.emoji);
                     boton.disabled = false;
                     boton.innerText = "Girar de nuevo";
                 }
