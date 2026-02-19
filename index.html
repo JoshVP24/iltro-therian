@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Descubre tu Therian Interno</title>
+    <style>
+        body { 
+            margin: 0; display: flex; flex-direction: column; align-items: center; 
+            background-color: #121212; color: white; font-family: sans-serif; 
+        }
+        #video-container { 
+            position: relative; width: 100%; max-width: 400px; margin-top: 20px; 
+        }
+        /* El scaleX(-1) hace el efecto espejo vital para selfies */
+        video { 
+            width: 100%; border-radius: 15px; transform: scaleX(-1); background: #000;
+        }
+        button { 
+            margin-top: 30px; padding: 15px 30px; font-size: 20px; border-radius: 30px; 
+            border: none; background-color: #8a2be2; color: white; font-weight: bold; 
+            cursor: pointer; box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <h2>¿Cuál es tu Therian?</h2>
+    <div id="video-container">
+        <video id="webcam" autoplay playsinline></video>
+    </div>
+    <button id="btn-descubrir">¡Girar la Ruleta!</button>
+
+    <script src="app.js"></script>
+</body>
+</html>
