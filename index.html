@@ -3,18 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filtro Therian - Final</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+    <title>Filtro Therian - Indestructible</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
     <style>
         body { margin: 0; display: flex; flex-direction: column; align-items: center; background-color: #121212; color: white; font-family: sans-serif; overflow-x: hidden; }
+        #contenedor-app { position: relative; width: 100%; max-width: 400px; margin-top: 20px; }
         
-        /* CONTENEDOR BLINDADO */
-        #contenedor-app { position: relative; width: 100%; max-width: 400px; margin-top: 20px; border-radius: 15px; overflow: hidden; }
-        
-        /* LA MAGIA DE LAS CAPAS QUE SÍ FUNCIONÓ */
-        video { width: 100%; transform: scaleX(-1); background: #000; display: block; position: relative; z-index: 1; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; z-index: 100; }
+        /* CAPAS BLINDADAS */
+        video { width: 100%; border-radius: 15px; transform: scaleX(-1); background: #000; display: block; position: relative; z-index: 1; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); border-radius: 15px; pointer-events: none; z-index: 100; }
         
         #ruleta { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.8); padding: 10px 20px; border-radius: 15px; font-size: 24px; font-weight: bold; z-index: 200; display: none; text-align: center; border: 2px solid #8a2be2; }
         button { margin-top: 20px; padding: 15px 30px; font-size: 20px; border-radius: 30px; border: none; background-color: #8a2be2; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4); z-index: 10; }
@@ -33,7 +30,7 @@
 
     <button id="btn-descubrir" disabled>Cargando IA...</button>
 
-    <div id="consola">> Fusionando motor perfecto con capa superior...<br></div>
+    <div id="consola">> Iniciando sistema a prueba de balas...<br></div>
 
     <script>
         const video = document.getElementById('webcam');
@@ -63,7 +60,7 @@
         let assets = {}; 
         let iaLista = false;
 
-        log("Cargando imágenes de animales...");
+        log("Cargando imágenes...");
         therians.forEach(animal => {
             assets[animal.emoji] = { orejas: new Image(), centro: new Image() };
             if(animal.archivoOrejas) assets[animal.emoji].orejas.src = animal.archivoOrejas;
@@ -81,13 +78,12 @@
         faceMesh.onResults((results) => {
             if (!iaLista) {
                 iaLista = true;
-                log("✅ IA 100% ACTIVA.");
+                log("✅ IA ACTIVA Y RASTREANDO.");
                 boton.disabled = false;
                 boton.innerText = "¡Girar la Ruleta!";
             }
 
-            // Aseguramos que el lienzo calce exacto con el video
-            if (!video.videoWidth) return;
+            if (video.videoWidth === 0) return;
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -99,10 +95,10 @@
                 const mejillaIzq = rostro[234];
                 const mejillaDer = rostro[454];
 
-                // PUNTITO VERDE DE LA VICTORIA: Dibuja un círculo verde neón en tu nariz
+                // PUNTITO VERDE GIGANTE PARA CONFIRMAR QUE TE ESTÁ VIENDO
                 ctx.fillStyle = "#00FF00";
                 ctx.beginPath();
-                ctx.arc(nariz.x * canvas.width, nariz.y * canvas.height, 8, 0, 2 * Math.PI);
+                ctx.arc(nariz.x * canvas.width, nariz.y * canvas.height, 12, 0, 2 * Math.PI);
                 ctx.fill();
 
                 if (animalActual) {
@@ -129,29 +125,26 @@
             }
         });
 
-        // EL MOTOR DE BUCLE QUE JAMÁS SE DETIENE (El que usaste a las 2:38 PM)
         async function iniciarCamara() {
+            log("Conectando cámara...");
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 video.srcObject = stream;
                 
                 video.onloadedmetadata = () => {
                     video.play();
-                    log("Cámara lista. Encendiendo radar...");
+                    log("Arrancando bucle infinito...");
                     
+                    // EL BUCLE CLÁSICO INDESTRUCTIBLE
                     async function procesarFrame() {
-                        try {
-                            await faceMesh.send({image: video});
-                        } catch (e) {} // Ignora cortes minúsculos
-                        
-                        // Este es el truco para que nunca deje de rastrear
-                        if (video.requestVideoFrameCallback) {
-                            video.requestVideoFrameCallback(procesarFrame);
-                        } else {
-                            requestAnimationFrame(procesarFrame);
+                        if (video.readyState >= 2) {
+                            try {
+                                await faceMesh.send({image: video});
+                            } catch(e) {} // Evita que un micro-corte apague la IA
                         }
+                        requestAnimationFrame(procesarFrame); // Se llama a sí mismo sin parar jamás
                     }
-                    procesarFrame(); // Inicia el bucle infinito
+                    procesarFrame(); 
                 };
             } catch (error) { log("❌ Error de cámara: " + error); }
         }
@@ -175,7 +168,7 @@
                     const ganador = therians[Math.floor(Math.random() * therians.length)];
                     ruleta.innerHTML = `¡Eres un<br><span style="color:#8a2be2; font-size:30px;">${ganador.emoji}</span>!`;
                     animalActual = ganador.emoji; 
-                    log("Apareciendo máscara de: " + ganador.emoji);
+                    log("Aplicando máscara: " + ganador.emoji);
                     boton.disabled = false;
                     boton.innerText = "Girar de nuevo";
                 }
@@ -183,4 +176,5 @@
         });
     </script>
 </body>
+
 </html>
