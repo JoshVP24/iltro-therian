@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Descubre tu Therian Interno</title>
+    <title>Therian App</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <style>
@@ -17,24 +17,28 @@
         video { 
             width: 100%; border-radius: 15px; transform: scaleX(-1); background: #000; display: block;
         }
-        /* Esta es la capa transparente donde dibujaremos las máscaras después */
         canvas { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
             transform: scaleX(-1); border-radius: 15px; pointer-events: none;
         }
-        /* Diseño del letrero de la ruleta */
         #ruleta { 
             position: absolute; top: 15%; left: 50%; transform: translateX(-50%); 
             background: rgba(0, 0, 0, 0.8); padding: 10px 20px; border-radius: 15px; 
-            font-size: 24px; font-weight: bold; z-index: 10; display: none; text-align: center;
-            border: 2px solid #8a2be2;
+            font-size: 24px; font-weight: bold; z-index: 10; display: none; text-align: center; border: 2px solid #8a2be2;
         }
         button { 
-            margin-top: 30px; padding: 15px 30px; font-size: 20px; border-radius: 30px; 
+            margin-top: 20px; padding: 15px 30px; font-size: 20px; border-radius: 30px; 
             border: none; background-color: #8a2be2; color: white; font-weight: bold; 
             cursor: pointer; box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4); z-index: 10;
         }
-        button:disabled { background-color: #555; cursor: not-allowed; box-shadow: none; }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+        
+        /* PANTALLA DE DEBUG PARA ENCONTRAR EL ERROR */
+        #consola {
+            margin-top: 20px; width: 90%; max-width: 400px; background: #000; color: #0f0; 
+            font-family: monospace; font-size: 12px; padding: 10px; border-radius: 10px; 
+            border: 1px solid #333; text-align: left;
+        }
     </style>
 </head>
 <body>
@@ -48,7 +52,144 @@
 
     <button id="btn-descubrir">¡Girar la Ruleta!</button>
 
-    <script src="app.js?v=100"></script>
-</body>
+    <div id="consola">
+        > Sistema iniciado...<br>
+    </div>
 
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('output_canvas');
+        const ctx = canvas.getContext('2d');
+        const boton = document.getElementById('btn-descubrir');
+        const ruleta = document.getElementById('ruleta');
+        const consola = document.getElementById('consola');
+
+        // Función para imprimir mensajes en tu pantalla
+        function log(mensaje) {
+            consola.innerHTML += "> " + mensaje + "<br>";
+        }
+
+        // Atrapa cualquier error oculto del navegador y lo muestra en pantalla
+        window.onerror = function(msg, url, line) {
+            log("❌ ERROR CRÍTICO: " + msg + " (Línea " + line + ")");
+        };
+
+        const therians = [
+            { emoji: "🐺 Lobo", archivoOrejas: "orejas-lobo.png", archivoCentro: "hocico-lobo.png" },
+            { emoji: "🐱 Gato", archivoOrejas: "orejas-gato.png", archivoCentro: "nariz-gato.png" },
+            { emoji: "🦊 Zorro", archivoOrejas: "orejas-zorro.png", archivoCentro: "hocico-zorro.png" },
+            { emoji: "🐶 Perro", archivoOrejas: "orejas-perro.png", archivoCentro: "hocico-perro.png" },
+            { emoji: "🦅 Águila", archivoOrejas: null, archivoCentro: "pico-aguila.png" },
+            { emoji: "🐻 Oso", archivoOrejas: "orejas-oso.png", archivoCentro: "hocico-oso.png" },
+            { emoji: "🦌 Ciervo", archivoOrejas: "cuernos-ciervo.png", archivoCentro: "nariz-ciervo.png" },
+            { emoji: "🐾 Lince", archivoOrejas: "orejas-lince.png", archivoCentro: "hocico-lince.png" }
+        ];
+
+        let animalActual = null; 
+        let assets = {}; 
+
+        log("Cargando imágenes PNG...");
+        therians.forEach(animal => {
+            assets[animal.emoji] = { orejas: new Image(), centro: new Image() };
+            if(animal.archivoOrejas) assets[animal.emoji].orejas.src = animal.archivoOrejas;
+            if(animal.archivoCentro) assets[animal.emoji].centro.src = animal.archivoCentro; 
+        });
+
+        log("Conectando con Google FaceMesh...");
+        const faceMesh = new FaceMesh({locateFile: (file) => {
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+        }});
+
+        faceMesh.setOptions({
+          maxNumFaces: 1, refineLandmarks: false,
+          minDetectionConfidence: 0.5, minTrackingConfidence: 0.5
+        });
+
+        let rostroDetectado = false;
+
+        faceMesh.onResults((results) => {
+            if (!rostroDetectado) {
+                rostroDetectado = true;
+                log("✅ ¡Rostro detectado! IA calculando.");
+            }
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 && animalActual) {
+                const rostro = results.multiFaceLandmarks[0];
+                const frente = rostro[10];   
+                const nariz = rostro[1];     
+                const mejillaIzq = rostro[234];
+                const mejillaDer = rostro[454];
+
+                const anchoCara = Math.abs(mejillaDer.x - mejillaIzq.x) * canvas.width;
+                const orejasImg = assets[animalActual].orejas;
+                const centroImg = assets[animalActual].centro;
+
+                // PUNTO DE RASTREO: Dibuja un punto verde brillante en tu nariz para confirmar que sí funciona la IA
+                ctx.fillStyle = "#00ff00";
+                ctx.beginPath();
+                ctx.arc(nariz.x * canvas.width, nariz.y * canvas.height, 5, 0, 2 * Math.PI);
+                ctx.fill();
+
+                if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
+                    const anchoOrejas = anchoCara * 1.5; 
+                    const altoOrejas = (orejasImg.height / orejasImg.width) * anchoOrejas;
+                    const xOrejas = (frente.x * canvas.width) - (anchoOrejas / 2);
+                    const yOrejas = (frente.y * canvas.height) - altoOrejas + (anchoCara * 0.2); 
+                    ctx.drawImage(orejasImg, xOrejas, yOrejas, anchoOrejas, altoOrejas);
+                }
+
+                if (centroImg.src && centroImg.complete && centroImg.naturalWidth > 0) {
+                    const anchoCentro = anchoCara * 0.5; 
+                    const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
+                    const xCentro = (nariz.x * canvas.width) - (anchoCentro / 2);
+                    const yCentro = (nariz.y * canvas.height) - (altoCentro / 2);
+                    ctx.drawImage(centroImg, xCentro, yCentro, anchoCentro, altoCentro);
+                }
+            }
+        });
+
+        log("Iniciando cámara...");
+        const camera = new Camera(video, {
+          onFrame: async () => {
+            await faceMesh.send({image: video}).catch(e => log("❌ IA Error: " + e));
+          },
+          width: 480, height: 640
+        });
+        camera.start().then(() => log("✅ Cámara encendida.")).catch(e => log("❌ Cámara Error: " + e));
+
+        boton.addEventListener('click', () => {
+            if(!rostroDetectado) {
+                log("⚠️ Espera un segundo a que la IA encuentre tu rostro...");
+                return;
+            }
+            
+            boton.disabled = true;
+            ruleta.style.display = "block";
+            animalActual = null; 
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            
+            let tiempoGiro = 0;
+            log("Girando ruleta...");
+            const intervalo = setInterval(() => {
+                const indexAleatorio = Math.floor(Math.random() * therians.length);
+                ruleta.innerText = therians[indexAleatorio].emoji;
+                tiempoGiro += 100;
+
+                if (tiempoGiro >= 3000) {
+                    clearInterval(intervalo);
+                    const ganador = therians[Math.floor(Math.random() * therians.length)];
+                    ruleta.innerHTML = `¡Eres un<br><span style="color:#8a2be2; font-size:30px;">${ganador.emoji}</span>!`;
+                    animalActual = ganador.emoji; 
+                    log("🎉 Resultado final: " + ganador.emoji);
+                    boton.disabled = false;
+                    boton.innerText = "Girar de nuevo";
+                }
+            }, 100); 
+        });
+    </script>
+</body>
 </html>
