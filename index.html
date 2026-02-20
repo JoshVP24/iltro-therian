@@ -3,37 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Filtro Therian</title>
+    <title>Filtro Therian Definitivo</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
     <style>
         * { box-sizing: border-box; }
         body { 
-            margin: 0; padding: 20px 0 0 0; background-color: #121212; color: white; 
+            margin: 0; padding: 20px 0; background-color: #121212; color: white; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            display: flex; flex-direction: column; align-items: center; height: 100vh;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
         }
-        
-        h2 { margin-top: 0; margin-bottom: 20px; font-size: 24px; }
+        h2 { margin-top: 0; margin-bottom: 20px; font-size: 24px; text-align: center; }
 
-        /* EL NUEVO CONTENEDOR: Adiós al zoom extremo */
-        #camera-container { 
-            position: relative; 
-            width: 95%; max-width: 480px; 
-            aspect-ratio: 3/4; /* Proporción natural de la cámara */
-            background: #000; border-radius: 20px; overflow: hidden;
+        /* CONTENEDOR SIN ZOOM: Muestra el 100% de la cámara de tu celular */
+        #camera-wrapper {
+            position: relative;
+            width: 95%; max-width: 480px;
+            border-radius: 20px; overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: #000;
+            display: block;
         }
-        
-        /* Capas idénticas sin deformar */
-        video, canvas { 
-            position: absolute; top: 0; left: 0; 
-            width: 100%; height: 100%; 
-            object-fit: cover; /* Ahora solo se ajusta al cuadro 3/4, sin zoom loco */
-            transform: scaleX(-1); 
+
+        /* Video y Canvas ahora se escalan de forma natural, sin recortar tu cara */
+        video {
+            width: 100%; height: auto; 
+            display: block; transform: scaleX(-1);
         }
-        video { z-index: 1; }
-        canvas { z-index: 100; pointer-events: none; }
+        canvas {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; z-index: 100;
+            transform: scaleX(-1);
+        }
         
         #ruleta { 
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 80%;
@@ -42,7 +44,7 @@
             border: 2px solid #8a2be2;
         }
 
-        .controles { margin-top: 30px; }
+        .controles { margin-top: 20px; text-align: center; }
 
         #btn-descubrir {
             padding: 15px 40px; border-radius: 30px; background-color: #8a2be2; border: none;
@@ -56,7 +58,7 @@
 <body>
     <h2>¿Cuál es tu Therian?</h2>
     
-    <div id="camera-container">
+    <div id="camera-wrapper">
         <div id="ruleta">❓</div>
         <video id="webcam" autoplay playsinline webkit-playsinline muted></video>
         <canvas id="output_canvas"></canvas>
@@ -88,20 +90,17 @@
         let assets = {}; 
         let iaLista = false;
 
-        // Cargar imágenes de golpe
         therians.forEach(animal => {
             assets[animal.emoji] = { orejas: new Image(), centro: new Image() };
             if(animal.archivoOrejas) assets[animal.emoji].orejas.src = animal.archivoOrejas;
             if(animal.archivoCentro) assets[animal.emoji].centro.src = animal.archivoCentro; 
         });
 
-        // Configurar la Inteligencia Artificial
         const faceMesh = new FaceMesh({locateFile: (file) => {
           return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
         }});
         faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
-        // Cerebro de dibujo
         faceMesh.onResults((results) => {
             if (!iaLista) { 
                 iaLista = true; 
@@ -111,12 +110,11 @@
 
             if (video.videoWidth === 0) return;
             
-            // Iguala el lienzo a la resolución interna pura de la cámara
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Si detecta una cara
+            // Si detecta el rostro (ahora sí lo hará en celular porque se ve completo)
             if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                 const rostro = results.multiFaceLandmarks[0];
                 const frente = rostro[10];   
@@ -126,22 +124,20 @@
 
                 const anchoCara = Math.abs(mejillaDer.x - mejillaIzq.x) * canvas.width;
 
-                // 🔴 PUNTO ROJO GUÍA: Si este punto está en tu nariz, la cámara NO se ha congelado
-                ctx.fillStyle = "red";
-                ctx.beginPath();
-                ctx.arc(nariz.x * canvas.width, nariz.y * canvas.height, 5, 0, 2 * Math.PI);
-                ctx.fill();
-
                 if (animalActual) {
                     const orejasImg = assets[animalActual].orejas;
                     const centroImg = assets[animalActual].centro;
 
-                    // CALIBRACIÓN DE TAMAÑOS Y ALTURAS
+                    // ==========================================
+                    // SOLUCIÓN AL HOCICO BAJO
+                    // ==========================================
                     const escalaOrejas = 1.8;  
                     const alturaOrejas = 0.5;  
                     
                     const escalaHocico = 1.0; 
-                    const alturaHocico = 0.25; // <--- LO SUBIMOS DE 0.18 A 0.25 PARA BAJARLO MÁS HACIA TU BOCA
+                    // Regresamos este valor a 0.05 para que se siente justo en la punta de tu nariz y no en tu boca
+                    const alturaHocico = 0.05; 
+                    // ==========================================
 
                     if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
                         const anchoOrejas = anchoCara * escalaOrejas; 
@@ -155,7 +151,6 @@
                         const anchoCentro = anchoCara * escalaHocico; 
                         const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
                         const xCentro = (nariz.x * canvas.width) - (anchoCentro / 2);
-                        // Sumar alturaHocico lo empuja hacia abajo
                         const yCentro = (nariz.y * canvas.height) - (altoCentro / 2) + (anchoCara * alturaHocico);
                         ctx.drawImage(centroImg, xCentro, yCentro, anchoCentro, altoCentro);
                     }
@@ -163,7 +158,6 @@
             }
         });
 
-        // Arranque nativo 100% compatible con móviles
         async function iniciarCamara() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
@@ -178,7 +172,7 @@
                     }
                     procesarFrame(); 
                 };
-            } catch (error) { alert("Cámara bloqueada. Da permisos."); }
+            } catch (error) { alert("Asegúrate de dar permisos de cámara."); }
         }
         iniciarCamara();
 
