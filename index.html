@@ -7,58 +7,63 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
     <style>
-        /* ESTILOS TIPO INSTAGRAM */
         * { box-sizing: border-box; }
         body { 
-            margin: 0; padding: 0; background-color: #000; color: white; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
-        }
-        .top-bar {
-            width: 100%; padding: 15px; text-align: center; font-weight: 600; font-size: 18px; letter-spacing: 1px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent); position: absolute; top: 0; z-index: 300;
-        }
-        #camera-container { 
-            flex-grow: 1; position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: #111; overflow: hidden;
+            margin: 0; padding: 20px 0 0 0; background-color: #121212; color: white; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            display: flex; flex-direction: column; align-items: center; height: 100vh;
         }
         
-        /* LA MAGIA DEL CLON CSS */
+        h2 { margin-top: 0; margin-bottom: 20px; font-size: 24px; }
+
+        /* EL NUEVO CONTENEDOR: Adiós al zoom extremo */
+        #camera-container { 
+            position: relative; 
+            width: 95%; max-width: 480px; 
+            aspect-ratio: 3/4; /* Proporción natural de la cámara */
+            background: #000; border-radius: 20px; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        /* Capas idénticas sin deformar */
         video, canvas { 
             position: absolute; top: 0; left: 0; 
             width: 100%; height: 100%; 
-            object-fit: cover; 
+            object-fit: cover; /* Ahora solo se ajusta al cuadro 3/4, sin zoom loco */
             transform: scaleX(-1); 
         }
         video { z-index: 1; }
         canvas { z-index: 100; pointer-events: none; }
         
         #ruleta { 
-            position: absolute; top: 80px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 350px;
-            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); padding: 15px; border-radius: 20px; 
-            font-size: 22px; font-weight: bold; text-align: center; z-index: 200; display: none; border: 1px solid rgba(255,255,255,0.1);
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 80%;
+            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); padding: 15px; border-radius: 15px; 
+            font-size: 22px; font-weight: bold; text-align: center; z-index: 200; display: none; 
+            border: 2px solid #8a2be2;
         }
-        .bottom-bar {
-            width: 100%; padding: 30px 20px; background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
-            display: flex; justify-content: center; align-items: center; position: absolute; bottom: 0; z-index: 300;
-        }
+
+        .controles { margin-top: 30px; }
+
         #btn-descubrir {
-            width: 80px; height: 80px; border-radius: 50%; background-color: rgba(255, 255, 255, 0.9); border: 5px solid rgba(255, 255, 255, 0.3);
-            cursor: pointer; outline: none; transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; font-size: 0;
+            padding: 15px 40px; border-radius: 30px; background-color: #8a2be2; border: none;
+            color: white; font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
         }
+        #btn-descubrir:disabled { background-color: #555; cursor: not-allowed; box-shadow: none; }
         #btn-descubrir:active { transform: scale(0.95); }
-        #btn-descubrir:disabled { background-color: rgba(255, 255, 255, 0.2); border-color: transparent; animation: pulse 1.5s infinite ease-in-out; }
-        @keyframes pulse { 0% { opacity: 0.6; scale: 0.95; } 50% { opacity: 1; scale: 1; } 100% { opacity: 0.6; scale: 0.95; } }
     </style>
 </head>
 <body>
-    <div class="top-bar">DESCUBRE TU THERIAN</div>
+    <h2>¿Cuál es tu Therian?</h2>
+    
     <div id="camera-container">
         <div id="ruleta">❓</div>
         <video id="webcam" autoplay playsinline webkit-playsinline muted></video>
         <canvas id="output_canvas"></canvas>
     </div>
-    <div class="bottom-bar">
-        <button id="btn-descubrir" disabled>Girar</button>
+
+    <div class="controles">
+        <button id="btn-descubrir" disabled>Cargando IA...</button>
     </div>
 
     <script>
@@ -83,31 +88,36 @@
         let assets = {}; 
         let iaLista = false;
 
-        // Cargando imágenes
+        // Cargar imágenes de golpe
         therians.forEach(animal => {
             assets[animal.emoji] = { orejas: new Image(), centro: new Image() };
             if(animal.archivoOrejas) assets[animal.emoji].orejas.src = animal.archivoOrejas;
             if(animal.archivoCentro) assets[animal.emoji].centro.src = animal.archivoCentro; 
         });
 
-        // Configuración de la IA
+        // Configurar la Inteligencia Artificial
         const faceMesh = new FaceMesh({locateFile: (file) => {
           return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`;
         }});
         faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
-        // Lo que hace cuando te detecta
+        // Cerebro de dibujo
         faceMesh.onResults((results) => {
-            if (!iaLista) { iaLista = true; boton.disabled = false; }
+            if (!iaLista) { 
+                iaLista = true; 
+                boton.disabled = false; 
+                boton.innerText = "Girar Ruleta"; 
+            }
 
             if (video.videoWidth === 0) return;
             
-            // Iguala la resolución interna del canvas a la de la cámara
+            // Iguala el lienzo a la resolución interna pura de la cámara
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0 && animalActual) {
+            // Si detecta una cara
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                 const rostro = results.multiFaceLandmarks[0];
                 const frente = rostro[10];   
                 const nariz = rostro[1];     
@@ -115,50 +125,65 @@
                 const mejillaDer = rostro[454];
 
                 const anchoCara = Math.abs(mejillaDer.x - mejillaIzq.x) * canvas.width;
-                const orejasImg = assets[animalActual].orejas;
-                const centroImg = assets[animalActual].centro;
 
-                // --- CALIBRACIÓN ---
-                const escalaOrejas = 2.0;  
-                const alturaOrejas = 0.5;  
-                const escalaHocico = 1.0;  // Hocico grande
-                const alturaHocico = 0.18; // Hocico hacia abajo
-                // -------------------
+                // 🔴 PUNTO ROJO GUÍA: Si este punto está en tu nariz, la cámara NO se ha congelado
+                ctx.fillStyle = "red";
+                ctx.beginPath();
+                ctx.arc(nariz.x * canvas.width, nariz.y * canvas.height, 5, 0, 2 * Math.PI);
+                ctx.fill();
 
-                if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
-                    const anchoOrejas = anchoCara * escalaOrejas; 
-                    const altoOrejas = (orejasImg.height / orejasImg.width) * anchoOrejas;
-                    const xOrejas = (frente.x * canvas.width) - (anchoOrejas / 2);
-                    const yOrejas = (frente.y * canvas.height) - altoOrejas + (anchoCara * alturaOrejas); 
-                    ctx.drawImage(orejasImg, xOrejas, yOrejas, anchoOrejas, altoOrejas);
-                }
+                if (animalActual) {
+                    const orejasImg = assets[animalActual].orejas;
+                    const centroImg = assets[animalActual].centro;
 
-                if (centroImg.src && centroImg.complete && centroImg.naturalWidth > 0) {
-                    const anchoCentro = anchoCara * escalaHocico; 
-                    const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
-                    const xCentro = (nariz.x * canvas.width) - (anchoCentro / 2);
-                    const yCentro = (nariz.y * canvas.height) - (altoCentro / 2) + (anchoCara * alturaHocico);
-                    ctx.drawImage(centroImg, xCentro, yCentro, anchoCentro, altoCentro);
+                    // CALIBRACIÓN DE TAMAÑOS Y ALTURAS
+                    const escalaOrejas = 1.8;  
+                    const alturaOrejas = 0.5;  
+                    
+                    const escalaHocico = 1.0; 
+                    const alturaHocico = 0.25; // <--- LO SUBIMOS DE 0.18 A 0.25 PARA BAJARLO MÁS HACIA TU BOCA
+
+                    if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
+                        const anchoOrejas = anchoCara * escalaOrejas; 
+                        const altoOrejas = (orejasImg.height / orejasImg.width) * anchoOrejas;
+                        const xOrejas = (frente.x * canvas.width) - (anchoOrejas / 2);
+                        const yOrejas = (frente.y * canvas.height) - altoOrejas + (anchoCara * alturaOrejas); 
+                        ctx.drawImage(orejasImg, xOrejas, yOrejas, anchoOrejas, altoOrejas);
+                    }
+
+                    if (centroImg.src && centroImg.complete && centroImg.naturalWidth > 0) {
+                        const anchoCentro = anchoCara * escalaHocico; 
+                        const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
+                        const xCentro = (nariz.x * canvas.width) - (anchoCentro / 2);
+                        // Sumar alturaHocico lo empuja hacia abajo
+                        const yCentro = (nariz.y * canvas.height) - (altoCentro / 2) + (anchoCara * alturaHocico);
+                        ctx.drawImage(centroImg, xCentro, yCentro, anchoCentro, altoCentro);
+                    }
                 }
             }
         });
 
-        // EL MOTOR OFICIAL DE GOOGLE (A prueba de celulares)
-        const camera = new Camera(video, {
-            onFrame: async () => {
-                await faceMesh.send({image: video});
-            },
-            width: 720,
-            height: 1280
-        });
-        camera.start();
+        // Arranque nativo 100% compatible con móviles
+        async function iniciarCamara() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    async function procesarFrame() {
+                        if (video.readyState >= 2) { 
+                            try { await faceMesh.send({image: video}); } catch(e) {} 
+                        }
+                        requestAnimationFrame(procesarFrame);
+                    }
+                    procesarFrame(); 
+                };
+            } catch (error) { alert("Cámara bloqueada. Da permisos."); }
+        }
+        iniciarCamara();
 
-        // Acción del botón
         boton.addEventListener('click', () => {
             if (!iaLista) return;
-            boton.style.transform = "scale(0.9)";
-            setTimeout(() => boton.style.transform = "scale(1)", 200);
-
             boton.disabled = true;
             ruleta.style.display = "block";
             animalActual = null; 
@@ -172,9 +197,10 @@
                 if (tiempoGiro >= 3000) {
                     clearInterval(intervalo);
                     const ganador = therians[Math.floor(Math.random() * therians.length)];
-                    ruleta.innerHTML = `Tu Therian es:<br><span style="color:#bd6aff; font-size:32px;">${ganador.emoji}</span>`;
+                    ruleta.innerHTML = `¡Eres un<br><span style="color:#bd6aff; font-size:32px;">${ganador.emoji}</span>!`;
                     animalActual = ganador.emoji; 
                     boton.disabled = false;
+                    boton.innerText = "Girar de nuevo";
                 }
             }, 100); 
         });
