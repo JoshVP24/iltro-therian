@@ -107,10 +107,10 @@
                     const centroImg = assets[animalActual].centro;
 
                     if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
-                        const anchoOrejas = anchoCara * 1.5; 
+                        const anchoOrejas = anchoCara * 1.3; 
                         const altoOrejas = (orejasImg.height / orejasImg.width) * anchoOrejas;
                         const xOrejas = (frente.x * canvas.width) - (anchoOrejas / 2);
-                        const yOrejas = (frente.y * canvas.height) - altoOrejas + (anchoCara * 0.2); 
+                        const yOrejas = (frente.y * canvas.height) - altoOrejas + (anchoCara * 0.1); 
                         ctx.drawImage(orejasImg, xOrejas, yOrejas, anchoOrejas, altoOrejas);
                     }
 
