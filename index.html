@@ -99,7 +99,7 @@
             }
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // --- NUEVA MATEMÁTICA DE CORRECCIÓN DE ZOOM ---
+            // MATEMÁTICA DE CORRECCIÓN DE ZOOM
             const videoRatio = video.videoWidth / video.videoHeight;
             const canvasRatio = canvas.width / canvas.height;
             let scale, offsetX, offsetY;
@@ -114,50 +114,42 @@
                 offsetY = 0;
             }
 
-            // Función para corregir las coordenadas de la IA al mundo con zoom
             function corregirCoord(coordinate, dimension, offset) {
                 return (coordinate * dimension * scale) - offset;
             }
-            // ----------------------------------------------
 
             if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                 const rostro = results.multiFaceLandmarks[0];
-                // Usamos la nueva función para obtener las coordenadas reales en pantalla
                 const frenteX = corregirCoord(rostro[10].x, video.videoWidth, offsetX);
                 const frenteY = corregirCoord(rostro[10].y, video.videoHeight, offsetY);
                 const narizX = corregirCoord(rostro[1].x, video.videoWidth, offsetX);
                 const narizY = corregirCoord(rostro[1].y, video.videoHeight, offsetY);
-                
                 const mejillaIzqX = corregirCoord(rostro[234].x, video.videoWidth, offsetX);
                 const mejillaDerX = corregirCoord(rostro[454].x, video.videoWidth, offsetX);
 
-                // Círculo amarillo de prueba (¡Ahora sí debería estar en la punta de tu nariz!)
-                ctx.fillStyle = "yellow";
-                ctx.beginPath();
-                ctx.arc(narizX, narizY, 8, 0, 2 * Math.PI);
-                ctx.fill();
-
                 if (animalActual) {
-                    // Calculamos el ancho de la cara usando las coordenadas corregidas
                     const anchoCara = Math.abs(mejillaDerX - mejillaIzqX);
                     const orejasImg = assets[animalActual].orejas;
                     const centroImg = assets[animalActual].centro;
 
-                    // --- ZONA DE CALIBRACIÓN ---
-                    const escalaTamano = 1.8;  // Tamaño de las imágenes
-                    const ajusteAltura = 0.5;  // Altura de las orejas
-                    // ---------------------------
+                    // --- ZONA DE CALIBRACIÓN DE TAMAÑOS ---
+                    const escalaOrejas = 2.0;  // Orejas un poco más grandes también
+                    const alturaOrejas = 0.5; 
+                    // AQUÍ ESTÁ EL CAMBIO DEL HOCICO: De 0.6 subimos a 1.0
+                    const escalaHocico = 1.0; 
+                    // --------------------------------------
 
                     if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
-                        const anchoOrejas = anchoCara * escalaTamano; 
+                        const anchoOrejas = anchoCara * escalaOrejas; 
                         const altoOrejas = (orejasImg.height / orejasImg.width) * anchoOrejas;
                         const xOrejas = frenteX - (anchoOrejas / 2);
-                        const yOrejas = frenteY - altoOrejas + (anchoCara * ajusteAltura); 
+                        const yOrejas = frenteY - altoOrejas + (anchoCara * alturaOrejas); 
                         ctx.drawImage(orejasImg, xOrejas, yOrejas, anchoOrejas, altoOrejas);
                     }
 
                     if (centroImg.src && centroImg.complete && centroImg.naturalWidth > 0) {
-                        const anchoCentro = anchoCara * 0.6; // Un poco más grande el hocico
+                        // Usamos la nueva escalaHocico (1.0)
+                        const anchoCentro = anchoCara * escalaHocico; 
                         const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
                         const xCentro = narizX - (anchoCentro / 2);
                         const yCentro = narizY - (altoCentro / 2);
