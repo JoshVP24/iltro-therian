@@ -22,12 +22,12 @@
             flex-grow: 1; position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: #111; overflow: hidden;
         }
         
-        /* LA MAGIA DEL CLON CSS: Ambos se estiran igual */
+        /* LA MAGIA DEL CLON CSS */
         video, canvas { 
             position: absolute; top: 0; left: 0; 
             width: 100%; height: 100%; 
-            object-fit: cover; /* Hace el zoom automático */
-            transform: scaleX(-1); /* Efecto espejo */
+            object-fit: cover; 
+            transform: scaleX(-1); 
         }
         video { z-index: 1; }
         canvas { z-index: 100; pointer-events: none; }
@@ -54,7 +54,7 @@
     <div class="top-bar">DESCUBRE TU THERIAN</div>
     <div id="camera-container">
         <div id="ruleta">❓</div>
-        <video id="webcam" autoplay playsinline></video>
+        <video id="webcam" autoplay playsinline webkit-playsinline muted></video>
         <canvas id="output_canvas"></canvas>
     </div>
     <div class="bottom-bar">
@@ -102,7 +102,7 @@
 
             if (video.videoWidth === 0) return;
             
-            // Le damos al lienzo la resolución ORIGINAL de la cámara (el CSS hace el zoom visual)
+            // Iguala la resolución interna del canvas a la de la cámara
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -118,13 +118,12 @@
                 const orejasImg = assets[animalActual].orejas;
                 const centroImg = assets[animalActual].centro;
 
-                // --- CALIBRACIÓN DE TAMAÑOS FINAL ---
-                const escalaOrejas = 2.0;  // Orejas grandes
+                // --- CALIBRACIÓN ---
+                const escalaOrejas = 2.0;  
                 const alturaOrejas = 0.5;  
-                
-                const escalaHocico = 1.0;  // Hocico grande (cubre boca y nariz)
-                const alturaHocico = 0.18; // <--- VALOR CLAVE: Positivo hace que baje hacia tu boca
-                // ------------------------------------
+                const escalaHocico = 1.0;  // Hocico grande
+                const alturaHocico = 0.18; // Hocico hacia abajo
+                // -------------------
 
                 if (orejasImg.src && orejasImg.complete && orejasImg.naturalWidth > 0) {
                     const anchoOrejas = anchoCara * escalaOrejas; 
@@ -138,30 +137,23 @@
                     const anchoCentro = anchoCara * escalaHocico; 
                     const altoCentro = (centroImg.height / centroImg.width) * anchoCentro;
                     const xCentro = (nariz.x * canvas.width) - (anchoCentro / 2);
-                    // Aquí agregamos la bajada matemática para que cubra la boca
                     const yCentro = (nariz.y * canvas.height) - (altoCentro / 2) + (anchoCara * alturaHocico);
                     ctx.drawImage(centroImg, xCentro, yCentro, anchoCentro, altoCentro);
                 }
             }
         });
 
-        // Motor de cámara blindado para celulares
-        async function iniciarCamara() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                video.srcObject = stream;
-                video.onloadedmetadata = () => {
-                    video.play();
-                    async function procesarFrame() {
-                        if (video.readyState >= 2) { try { await faceMesh.send({image: video}); } catch(e) {} }
-                        requestAnimationFrame(procesarFrame);
-                    }
-                    procesarFrame(); 
-                };
-            } catch (error) { alert("Error de cámara: " + error); }
-        }
-        iniciarCamara();
+        // EL MOTOR OFICIAL DE GOOGLE (A prueba de celulares)
+        const camera = new Camera(video, {
+            onFrame: async () => {
+                await faceMesh.send({image: video});
+            },
+            width: 720,
+            height: 1280
+        });
+        camera.start();
 
+        // Acción del botón
         boton.addEventListener('click', () => {
             if (!iaLista) return;
             boton.style.transform = "scale(0.9)";
